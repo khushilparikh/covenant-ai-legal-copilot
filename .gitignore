@@ -1,0 +1,20 @@
+# --- Python / backend ---
+covenant-backend/venv/
+covenant-backend/__pycache__/
+covenant-backend/**/__pycache__/
+covenant-backend/.env
+covenant-backend/uploads/
+covenant-backend/app/ml/artifacts/*.joblib
+covenant-backend/app/ml/artifacts/*.json
+covenant-backend/app/ml/artifacts/chroma_store/
+covenant-backend/data/*.csv
+
+# --- Node / frontend ---
+covenant-frontend/node_modules/
+covenant-frontend/dist/
+covenant-frontend/.env
+
+# --- OS/editor junk ---
+.DS_Store
+Thumbs.db
+.vscode/

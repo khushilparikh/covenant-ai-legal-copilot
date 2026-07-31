@@ -1,0 +1,39 @@
+# Optional convenience file. You said Postgres is already installed locally,
+# so you don't need this — but if you'd rather not manage a local Postgres
+# install, `docker compose up -d` gives you a matching database instantly.
+#
+# Either way, DATABASE_URL in .env must point at whichever Postgres you use.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: covenant-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: covenant
+    ports:
+      - "5432:5432"
+    volumes:
+      - covenant_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional: run Ollama in a container instead of installing it natively.
+  # Uncomment if you'd rather not install Ollama directly on your machine.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: covenant-ollama
+  #   restart: unless-stopped
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - covenant_ollama_data:/root/.ollama
+
+volumes:
+  covenant_pg_data:
+  # covenant_ollama_data:
