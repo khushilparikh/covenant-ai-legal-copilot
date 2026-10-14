@@ -11,6 +11,7 @@ import os
 import uuid
 from datetime import datetime
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.db import models
@@ -38,6 +39,17 @@ def _extractive_summary(clause_texts: list[str], max_sentences: int = 5) -> str:
     return " ".join(ranked)
 
 
+def index_contract(contract: models.Contract) -> None:
+    """(Re)index a contract's clauses in the embedding store."""
+    if not contract.clauses:
+        return
+    get_embedding_store().upsert_clauses(contract.id, [
+        {"id": c.id, "text": c.text, "clause_type": c.clause_type,
+         "risk_score": c.risk_score, "clause_number": c.clause_number}
+        for c in contract.clauses
+    ])
+
+
 def ingest_contract(db: Session, filename: str, file_bytes: bytes, uploaded_by_id: str | None,
                      upload_dir: str) -> models.Contract:
     classifier = get_classifier()
@@ -54,6 +66,13 @@ def ingest_contract(db: Session, filename: str, file_bytes: bytes, uploaded_by_i
     # 2. Extract text (Module 1)
     extraction = extract_text(filename, file_bytes)
     full_text = extraction["full_text"]
+    if not full_text.strip():
+        os.remove(file_path)
+        raise HTTPException(
+            status_code=422,
+            detail="No readable text found. This looks like a scanned PDF and OCR is unavailable - "
+                   "install Tesseract (https://github.com/UB-Mannheim/tesseract/wiki) or upload a text-based PDF/DOCX.",
+        )
 
     # 3. Segment + classify + score each clause (Modules 3, 4, 7)
     raw_segments = segment_into_clauses(full_text)
@@ -89,7 +108,7 @@ def ingest_contract(db: Session, filename: str, file_bytes: bytes, uploaded_by_i
     if is_ollama_available():
         try:
             summary = summarize_contract(clause_texts_for_summary)
-        except OllamaUnavailableError:
+        except Exception:  # never let the LLM break an upload
             summary = _extractive_summary(clause_texts_for_summary)
     else:
         summary = _extractive_summary(clause_texts_for_summary)
@@ -130,10 +149,9 @@ def ingest_contract(db: Session, filename: str, file_bytes: bytes, uploaded_by_i
     db.refresh(contract)
 
     # 8. Index clauses for semantic search / chat retrieval (Modules 10-12)
-    store.upsert_clauses(contract.id, [
-        {"id": c.id, "text": c.text, "clause_type": c.clause_type,
-         "risk_score": c.risk_score, "clause_number": c.clause_number}
-        for c in contract.clauses
-    ])
+    try:
+        index_contract(contract)
+    except Exception as e:
+        print(f"[ingest] indexing failed (contract still saved): {type(e).__name__}: {e}")
 
     return contract

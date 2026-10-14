@@ -18,10 +18,14 @@ def _ocr_page(page) -> str:
         import pytesseract
         from PIL import Image
     except ImportError:
-        return "[OCR unavailable — install pytesseract and Pillow to enable scanned-document support]"
-    pix = page.get_pixmap(dpi=300)
-    img = Image.open(io.BytesIO(pix.tobytes("png")))
-    return pytesseract.image_to_string(img)
+        return ""
+    try:
+        pix = page.get_pixmap(dpi=300)
+        img = Image.open(io.BytesIO(pix.tobytes("png")))
+        return pytesseract.image_to_string(img)
+    except Exception as e:  # TesseractNotFoundError, bad image, etc. - never crash the upload
+        print(f"[OCR skipped] {type(e).__name__}: {e}")
+        return ""
 
 
 def extract_pdf(file_bytes: bytes) -> dict:

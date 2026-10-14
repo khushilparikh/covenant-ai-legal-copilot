@@ -32,7 +32,8 @@ class EmbeddingStore:
             self.client = chromadb.PersistentClient(path=CHROMA_DIR)
             self.collection = self.client.get_or_create_collection("clauses")
             self.backend = "sentence-transformers+chroma"
-        except ImportError:
+        except Exception as e:  # ImportError, offline model download, chroma errors...
+            print(f"[embeddings] falling back to TF-IDF: {type(e).__name__}: {e}")
             from sklearn.feature_extraction.text import TfidfVectorizer
 
             self.vectorizer = TfidfVectorizer(stop_words="english")
@@ -66,8 +67,24 @@ class EmbeddingStore:
         self._matrix = self.vectorizer.fit_transform(corpus)
         self._doc_ids = list(self._docs.keys())
 
+    def has_contract(self, contract_id: str) -> bool:
+        if self.backend == "sentence-transformers+chroma":
+            try:
+                res = self.collection.get(where={"contract_id": contract_id}, limit=1)
+                return bool(res.get("ids"))
+            except Exception:
+                return False
+        return any(d["metadata"]["contract_id"] == contract_id for d in self._docs.values())
+
     # -- read path ----------------------------------------------------
     def search(self, query: str, contract_id: str | None = None, top_k: int = 5) -> list[dict]:
+        try:
+            return self._search(query, contract_id, top_k)
+        except Exception as e:
+            print(f"[embeddings] search failed: {type(e).__name__}: {e}")
+            return []
+
+    def _search(self, query: str, contract_id: str | None = None, top_k: int = 5) -> list[dict]:
         if self.backend == "sentence-transformers+chroma":
             where = {"contract_id": contract_id} if contract_id else None
             q_emb = self.model.encode([query]).tolist()

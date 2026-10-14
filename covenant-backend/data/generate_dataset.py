@@ -1,3 +1,4 @@
+import os
 """
 Generates a synthetic-but-realistic labeled dataset of contract clause
 sentences for training the clause classification model.
@@ -141,7 +142,7 @@ def generate(n_per_class=32):
 
 if __name__ == "__main__":
     rows = generate(n_per_class=32)
-    with open("clause_training_data.csv", "w", newline="", encoding="utf-8") as f:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "clause_training_data.csv"), "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["text", "label"])
         writer.writerows(rows)

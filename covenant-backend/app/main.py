@@ -1,4 +1,8 @@
-from fastapi import FastAPI
+import logging
+import traceback
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import audit, auth, billing, chat, compliance, comparison, contracts, dashboard, redline, search
@@ -20,6 +24,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Return a JSON 500 *with CORS headers* so the browser shows the real error
+    instead of a misleading 'blocked by CORS policy' message."""
+    traceback.print_exception(type(exc), exc, exc.__traceback__)
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin in settings.CORS_ORIGINS:
+        headers = {"Access-Control-Allow-Origin": origin, "Access-Control-Allow-Credentials": "true"}
+    return JSONResponse(status_code=500, content={"detail": f"{type(exc).__name__}: {exc}"}, headers=headers)
+
 
 app.include_router(auth.router)
 app.include_router(contracts.router)

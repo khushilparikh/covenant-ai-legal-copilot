@@ -29,7 +29,9 @@ DATE_RE = re.compile(
     r"|\b\d{1,2}/\d{1,2}/\d{2,4}\b",
     re.IGNORECASE,
 )
-MONEY_RE = re.compile(r"\$\s?[\d,]+(?:\.\d{2})?(?:\s?(?:USD|million|thousand))?", re.IGNORECASE)
+MONEY_RE = re.compile(
+    r"(?:\$|\u20b9|\bRs\.?|\bINR)\s?[\d,]+(?:\.\d{1,2})?(?:\s?(?:USD|million|thousand|crore|lakh))?", re.IGNORECASE
+)
 GOVERNING_LAW_RE = re.compile(
     r"govern(?:ed|ing)\s+(?:by|in accordance with)\s+(?:the\s+)?laws?\s+of\s+([A-Z][\w\s]{2,40}?)(?:,|\.|\band\b|$)",
     re.IGNORECASE,

@@ -1,3 +1,4 @@
+import os
 """
 Generates a synthetic dataset of engineered clause features -> risk score
 (0-100), used to train the risk scoring regression model (Module 7: AI
@@ -76,7 +77,7 @@ def make_row():
 
 if __name__ == "__main__":
     rows = [make_row() for _ in range(1200)]
-    with open("risk_training_data.csv", "w", newline="", encoding="utf-8") as f:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "risk_training_data.csv"), "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         writer.writerows(rows)

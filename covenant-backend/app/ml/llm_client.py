@@ -18,7 +18,7 @@ import httpx
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b")
-REQUEST_TIMEOUT = 60.0
+REQUEST_TIMEOUT = 180.0
 
 
 class OllamaUnavailableError(Exception):
@@ -38,7 +38,7 @@ def _generate(prompt: str, system: str | None = None, temperature: float = 0.2) 
             resp = client.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload)
             resp.raise_for_status()
             return resp.json()["response"].strip()
-    except (httpx.ConnectError, httpx.TimeoutException) as e:
+    except (httpx.TransportError, httpx.TimeoutException) as e:
         raise OllamaUnavailableError(
             f"Could not reach Ollama at {OLLAMA_BASE_URL}. "
             f"Make sure `ollama serve` is running and `{OLLAMA_MODEL}` is pulled."
@@ -95,6 +95,19 @@ def answer_contract_question(question: str, retrieved_clauses: list[dict]) -> di
     }
 
 
+def _extract_json(raw: str) -> dict | None:
+    """Pull a JSON object out of LLM output that may include prose or code fences."""
+    text = raw.strip().strip("`")
+    for candidate in (text, text[text.find("{"): text.rfind("}") + 1] if "{" in text else ""):
+        try:
+            obj = json.loads(candidate)
+            if isinstance(obj, dict):
+                return obj
+        except (json.JSONDecodeError, ValueError):
+            continue
+    return None
+
+
 def generate_redline(clause_text: str, flag_reasons: list[str]) -> dict:
     prompt = (
         f"Original clause:\n{clause_text}\n\n"
@@ -102,10 +115,10 @@ def generate_redline(clause_text: str, flag_reasons: list[str]) -> dict:
         f"Propose a revised clause as JSON: {{\"suggested_text\": ..., \"reason\": ...}}"
     )
     raw = _generate(prompt, system=REDLINE_SYSTEM_PROMPT, temperature=0.2)
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        return {"suggested_text": raw, "reason": "Model did not return structured JSON; showing raw output."}
+    parsed = _extract_json(raw)
+    if parsed and "suggested_text" in parsed:
+        return {"suggested_text": str(parsed["suggested_text"]), "reason": str(parsed.get("reason", ""))}
+    return {"suggested_text": raw, "reason": "Model did not return structured JSON; showing raw output."}
 
 
 def is_ollama_available() -> bool:
